@@ -370,6 +370,71 @@
             font-family: 'Courier New', monospace;
         }
         #mobileIndicator.show { display: block; }
+        /* 手机模式 HUD 调整 */
+        body.mobile-mode #hpPanel {
+            top: 10px; left: 10px;
+            font-size: 14px;
+            padding: 6px 10px;
+            min-width: 180px;
+        }
+        body.mobile-mode #hpPanel .bar-container {
+            width: 150px; height: 10px;
+        }
+        body.mobile-mode #hpPanel .bar-label {
+            font-size: 11px; margin-top: 3px;
+        }
+        body.mobile-mode #scorePanel {
+            top: 10px; right: 10px;
+            font-size: 13px;
+            padding: 6px 10px;
+        }
+        body.mobile-mode #timePanel {
+            top: 50px; right: 10px;
+            font-size: 12px;
+            padding: 5px 10px;
+            min-width: auto;
+        }
+        body.mobile-mode #ammoPanel {
+            bottom: auto;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            right: auto;
+            font-size: 15px;
+            padding: 6px 12px;
+        }
+        body.mobile-mode #joystickZone {
+            bottom: 120px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+        }
+        body.mobile-mode .joystick-base {
+            width: 100px;
+            height: 100px;
+        }
+        body.mobile-mode .joystick-thumb {
+            width: 44px;
+            height: 44px;
+        }
+        body.mobile-mode #actionPanel {
+            bottom: 15px;
+            right: 8px;
+            grid-template-columns: 55px 55px 55px;
+            grid-template-rows: 48px 48px 48px;
+            gap: 6px;
+        }
+        body.mobile-mode .mobile-btn {
+            width: 50px;
+            height: 44px;
+            font-size: 11px;
+            border-radius: 10px;
+        }
+        body.mobile-mode #btnFire {
+            width: 54px;
+            height: 54px;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -825,48 +890,17 @@
         }
 
         /* ---------------------- 手机模式 ---------------------- */
+        let joystickTouchId = null; // 追踪摇杆手指的identifier
+
         function initMobileControls() {
-            const mc = document.getElementById('mobileControls');
             const joystickZone = document.getElementById('joystickZone');
             const joystickThumb = document.getElementById('joystickThumb');
             const cameraZone = document.getElementById('cameraTouchZone');
-            const indicator = document.getElementById('mobileIndicator');
-
-            // 摇杆事件
-            joystickZone.addEventListener('touchstart', e => {
-                if (gameState !== 'playing') return;
-                e.preventDefault();
-                const t = e.touches[0];
-                const rect = joystickZone.getBoundingClientRect();
-                mobileJoystick.baseX = rect.left + rect.width / 2;
-                mobileJoystick.baseY = rect.top + rect.height / 2;
-                mobileJoystick.active = true;
-                updateJoystick(t.clientX, t.clientY);
-            }, { passive: false });
-            joystickZone.addEventListener('touchmove', e => {
-                if (gameState !== 'playing') return;
-                e.preventDefault();
-                if (!mobileJoystick.active) return;
-                updateJoystick(e.touches[0].clientX, e.touches[0].clientY);
-            }, { passive: false });
-            joystickZone.addEventListener('touchend', e => {
-                e.preventDefault();
-                mobileJoystick.active = false;
-                mobileJoystick.dx = 0; mobileJoystick.dy = 0;
-                mobileKeys.w = false; mobileKeys.a = false; mobileKeys.s = false; mobileKeys.d = false;
-                joystickThumb.style.transform = 'translate(-50%, -50%)';
-            }, { passive: false });
-            joystickZone.addEventListener('touchcancel', e => {
-                mobileJoystick.active = false;
-                mobileJoystick.dx = 0; mobileJoystick.dy = 0;
-                mobileKeys.w = false; mobileKeys.a = false; mobileKeys.s = false; mobileKeys.d = false;
-                joystickThumb.style.transform = 'translate(-50%, -50%)';
-            });
 
             function updateJoystick(cx, cy) {
                 const dx = cx - mobileJoystick.baseX;
                 const dy = cy - mobileJoystick.baseY;
-                const maxR = 55;
+                const maxR = 50;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 const clampDist = Math.min(dist, maxR);
                 const angle = Math.atan2(dy, dx);
@@ -875,22 +909,66 @@
                 mobileJoystick.dx = clampedDx / maxR;
                 mobileJoystick.dy = clampedDy / maxR;
                 joystickThumb.style.transform = `translate(calc(-50% + ${clampedDx}px), calc(-50% + ${clampedDy}px))`;
-                // 映射到 WASD
-                const deadZone = 0.2;
+                const deadZone = 0.15;
                 mobileKeys.w = -mobileJoystick.dy > deadZone;
                 mobileKeys.s = -mobileJoystick.dy < -deadZone;
                 mobileKeys.a = -mobileJoystick.dx > deadZone;
                 mobileKeys.d = -mobileJoystick.dx < -deadZone;
             }
 
-            // 相机触控 - 滑屏转视角
+            function resetJoystick() {
+                mobileJoystick.active = false;
+                mobileJoystick.dx = 0; mobileJoystick.dy = 0;
+                mobileKeys.w = false; mobileKeys.a = false; mobileKeys.s = false; mobileKeys.d = false;
+                joystickThumb.style.transform = 'translate(-50%, -50%)';
+            }
+
+            // 摇杆 —— 通过 touch.identifier 精确追踪摇杆手指
+            joystickZone.addEventListener('touchstart', e => {
+                if (gameState !== 'playing') return;
+                e.preventDefault();
+                // 取刚落在摇杆区域内的手指
+                const t = e.changedTouches[0];
+                joystickTouchId = t.identifier;
+                const rect = joystickZone.getBoundingClientRect();
+                mobileJoystick.baseX = rect.left + rect.width / 2;
+                mobileJoystick.baseY = rect.top + rect.height / 2;
+                mobileJoystick.active = true;
+                updateJoystick(t.clientX, t.clientY);
+            }, { passive: false });
+
+            joystickZone.addEventListener('touchmove', e => {
+                if (gameState !== 'playing' || !mobileJoystick.active) return;
+                e.preventDefault();
+                // 从所有触控点中找到摇杆手指
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === joystickTouchId) {
+                        updateJoystick(e.touches[i].clientX, e.touches[i].clientY);
+                        break;
+                    }
+                }
+            }, { passive: false });
+
+            const onJoystickEnd = e => {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystickTouchId) {
+                        joystickTouchId = null;
+                        resetJoystick();
+                        break;
+                    }
+                }
+            };
+            joystickZone.addEventListener('touchend', onJoystickEnd, { passive: false });
+            joystickZone.addEventListener('touchcancel', onJoystickEnd);
+
+            // 相机触控 —— 使用 changedTouches 定位新手指，不与摇杆抢 ID
             cameraZone.addEventListener('touchstart', e => {
                 e.preventDefault();
                 if (gameState !== 'playing') return;
-                if (e.target === cameraZone || e.target === document.body || e.target.id === 'overlay') {
-                    // 多指：只处理第一指用于相机
-                    if (cameraTouchId === null) {
-                        const t = e.touches[0];
+                // 找到一根既不属于摇杆也不属于按钮区域的新手指
+                if (cameraTouchId === null) {
+                    const t = e.changedTouches[0];
+                    if (!joystickTouchId || t.identifier !== joystickTouchId) {
                         cameraTouchId = t.identifier;
                         cameraTouchStart.x = t.clientX;
                         cameraTouchStart.y = t.clientY;
@@ -899,6 +977,7 @@
                     }
                 }
             }, { passive: false });
+
             cameraZone.addEventListener('touchmove', e => {
                 e.preventDefault();
                 if (gameState !== 'playing' || cameraTouchId === null) return;
@@ -907,7 +986,7 @@
                         const t = e.touches[i];
                         const dx = t.clientX - cameraTouchStart.x;
                         const dy = t.clientY - cameraTouchStart.y;
-                        const sens = isAiming ? 0.0015 : 0.003;
+                        const sens = isAiming ? 0.0025 : 0.0055;
                         camera.rotation.y = cameraTouchStart.rotY - dx * sens;
                         camera.rotation.x = cameraTouchStart.rotX - dy * sens;
                         camera.rotation.x = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, camera.rotation.x));
@@ -915,13 +994,14 @@
                     }
                 }
             }, { passive: false });
+
             const endCameraTouch = e => {
-                if (cameraTouchId === null) return;
-                let found = false;
-                for (let i = 0; i < e.touches.length; i++) {
-                    if (e.touches[i].identifier === cameraTouchId) { found = true; break; }
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === cameraTouchId) {
+                        cameraTouchId = null;
+                        break;
+                    }
                 }
-                if (!found) cameraTouchId = null;
             };
             cameraZone.addEventListener('touchend', endCameraTouch);
             cameraZone.addEventListener('touchcancel', endCameraTouch);
@@ -1035,11 +1115,13 @@
             if (isMobileMode) {
                 mc.classList.add('active');
                 indicator.classList.add('show');
+                document.body.classList.add('mobile-mode');
                 crosshair.style.display = 'none';
                 document.body.style.cursor = 'default';
             } else {
                 mc.classList.remove('active');
                 indicator.classList.remove('show');
+                document.body.classList.remove('mobile-mode');
                 crosshair.style.display = 'block';
                 mobileKeys.shift = false;
                 document.getElementById('btnSprint').classList.remove('sprint-active');
