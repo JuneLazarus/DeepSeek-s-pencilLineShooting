@@ -283,7 +283,7 @@
             right: 20px;
             display: grid;
             grid-template-columns: 70px 70px 70px;
-            grid-template-rows: 60px 60px 60px;
+            grid-template-rows: 60px 60px;
             gap: 10px;
             z-index: 95;
             pointer-events: auto;
@@ -343,16 +343,46 @@
         }
         /* 瞄准按钮 */
         #btnAim { grid-row: 1; grid-column: 2; }
-        /* 跳跃按钮 */
-        #btnJump { grid-row: 2; grid-column: 3; }
         /* 换弹按钮 */
-        #btnReload { grid-row: 3; grid-column: 2; }
-        /* 疾跑按钮 */
-        #btnSprint { grid-row: 2; grid-column: 1; }
-        #btnPause { grid-row: 1; grid-column: 1; }
+        #btnReload { grid-row: 1; grid-column: 1; }
         #btnSprint.sprint-active {
             background: rgba(79,99,75,0.45);
             border-color: #4f634b;
+        }
+        /* 暂停按钮 - 全局右上角 */
+        #btnPause {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 300;
+            width: 42px;
+            height: 36px;
+            font-size: 15px;
+            border-radius: 8px;
+            background: rgba(252,248,239,0.55);
+            border: 2px solid rgba(43,43,43,0.45);
+            color: #2b2b2b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        #btnPause:active {
+            background: rgba(232,227,217,0.85);
+            border-color: rgba(128,60,52,0.8);
+        }
+        /* 摇杆上方按钮面板 */
+        #joystickActionPanel {
+            position: fixed;
+            bottom: 270px;
+            left: 50px;
+            display: flex;
+            gap: 8px;
+            z-index: 95;
+            pointer-events: auto;
         }
         /* 调试 - 手机模式指示器 */
         #mobileIndicator {
@@ -404,7 +434,7 @@
             padding: 6px 12px;
         }
         body.mobile-mode #joystickZone {
-            bottom: 120px;
+            bottom: 80px;
             left: 20px;
             width: 100px;
             height: 100px;
@@ -421,7 +451,7 @@
             bottom: 15px;
             right: 8px;
             grid-template-columns: 55px 55px 55px;
-            grid-template-rows: 48px 48px 48px;
+            grid-template-rows: 48px 48px;
             gap: 6px;
         }
         body.mobile-mode .mobile-btn {
@@ -433,6 +463,24 @@
         body.mobile-mode #btnFire {
             width: 54px;
             height: 54px;
+            font-size: 13px;
+        }
+        body.mobile-mode #joystickActionPanel {
+            bottom: 190px;
+            left: 20px;
+            gap: 6px;
+        }
+        body.mobile-mode #joystickActionPanel .mobile-btn {
+            width: 46px;
+            height: 40px;
+            font-size: 10px;
+            border-radius: 8px;
+        }
+        body.mobile-mode #btnPause {
+            top: 6px;
+            right: 6px;
+            width: 36px;
+            height: 30px;
             font-size: 13px;
         }
     </style>
@@ -463,20 +511,22 @@
     <div class="ui-panel" id="timePanel" style="top: 80px; right: 20px; min-width: 120px; text-align: right;">存活: 0s | 难度: 1.0x</div>
     <div id="overlay"></div>
     <div id="mobileIndicator">📱 手机模式</div>
+    <div class="mobile-btn" id="btnPause">⏸</div>
     <div id="mobileControls">
         <div id="cameraTouchZone"></div>
+        <div id="joystickActionPanel">
+            <div class="mobile-btn" id="btnSprint">疾跑</div>
+            <div class="mobile-btn" id="btnJump">跳跃</div>
+        </div>
         <div id="joystickZone">
             <div class="joystick-base">
                 <div class="joystick-thumb" id="joystickThumb"></div>
             </div>
         </div>
         <div id="actionPanel">
-            <div class="mobile-btn" id="btnPause">暂停</div>
-            <div class="mobile-btn" id="btnSprint">疾跑</div>
-            <div class="mobile-btn" id="btnAim">瞄准</div>
-            <div class="mobile-btn" id="btnJump">跳跃</div>
-            <div class="mobile-btn" id="btnFire">射击</div>
             <div class="mobile-btn" id="btnReload">换弹</div>
+            <div class="mobile-btn" id="btnAim">瞄准</div>
+            <div class="mobile-btn" id="btnFire">射击</div>
         </div>
     </div>
 
@@ -986,7 +1036,7 @@
                         const t = e.touches[i];
                         const dx = t.clientX - cameraTouchStart.x;
                         const dy = t.clientY - cameraTouchStart.y;
-                        const sens = isAiming ? 0.0025 : 0.0055;
+                        const sens = isAiming ? 0.0035 : 0.008;
                         camera.rotation.y = cameraTouchStart.rotY - dx * sens;
                         camera.rotation.x = cameraTouchStart.rotX - dy * sens;
                         camera.rotation.x = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, camera.rotation.x));
@@ -2078,7 +2128,7 @@
             document.addEventListener('mousemove', e => {
                 if(isMobileMode) return;
                 if(gameState!=='playing' || document.pointerLockElement !== renderer.domElement) return;
-                const sens = isAiming?0.0015:0.002;
+                const sens = isAiming?0.0022:0.003;
                 camera.rotation.y -= e.movementX*sens;
                 camera.rotation.x -= e.movementY*sens;
                 camera.rotation.x = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, camera.rotation.x));
