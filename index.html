@@ -1013,6 +1013,11 @@
                         <span>音量</span>
                         <input type="range" id="menuVolumeSlider" min="0" max="0.5" step="0.01" value="${bgmAudio.volume}">
                     </div>
+                    <div class="menu-volume">
+                        <button class="overlay-btn" id="btnPickMusic">🎵 选择音乐文件</button>
+                        <input type="file" id="musicFileInput" accept=".mp3,audio/mpeg" style="display:none">
+                        <span id="musicFileName" style="font-size:clamp(10px,1.5vmin,13px);opacity:0.7;">${bgmAudio.dataset.fileName || '未选择文件'}</span>
+                    </div>
                     <div style="margin-top:clamp(8px,2vh,15px); padding-top:clamp(5px,1.5vh,10px); border-top:1px dashed #2b2b2b;">
                         <button class="overlay-btn" id="btnToggleMobile">${isMobileMode ? '💻 切换桌面模式' : '📱 切换手机模式'}</button>
                         ${isPaused ? '<button class="overlay-btn" id="btnReturnMenu">🏠 返回主菜单</button>' : ''}
@@ -1043,6 +1048,48 @@
                     e.stopPropagation();
                     resetToMenu();
                 });
+            }
+            // 绑定选择音乐按钮
+            const pickBtn = document.getElementById('btnPickMusic');
+            const fileInput = document.getElementById('musicFileInput');
+            const nameLabel = document.getElementById('musicFileName');
+            if (pickBtn && fileInput) {
+                pickBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    fileInput.click();
+                });
+                fileInput.addEventListener('change', e => {
+                    e.stopPropagation();
+                    const file = fileInput.files[0];
+                    if (!file) return;
+                    // 释放旧 blob URL
+                    if (bgmAudio.dataset.blobUrl) {
+                        URL.revokeObjectURL(bgmAudio.dataset.blobUrl);
+                    }
+                    const blobUrl = URL.createObjectURL(file);
+                    bgmAudio.dataset.blobUrl = blobUrl;
+                    bgmAudio.dataset.fileName = file.name;
+                    bgmAudio.innerHTML = '';
+                    const source = document.createElement('source');
+                    source.src = blobUrl;
+                    source.type = file.type || 'audio/mpeg';
+                    bgmAudio.appendChild(source);
+                    bgmAudio.load();
+                    bgmAudio.play().catch(() => {});
+                    if (nameLabel) nameLabel.textContent = file.name;
+                    // 停止环境噪（有真实音乐了）
+                    if (ambientGain) {
+                        ambientGain.gain.value = 0;
+                    }
+                });
+                // 暂停状态下阻止文件选择器触发 overlay 点击
+                fileInput.addEventListener('click', e => {
+                    e.stopPropagation();
+                });
+            }
+            // 显示已选文件名
+            if (nameLabel && bgmAudio.dataset.blobUrl) {
+                nameLabel.textContent = bgmAudio.querySelector('source')?.src.split('/').pop() || '已选择';
             }
         }
 
@@ -1273,7 +1320,6 @@
             if (isMobileMode) {
                 mc.classList.add('active');
                 document.body.classList.add('mobile-mode');
-                crosshair.style.display = 'none';
                 document.body.style.cursor = 'default';
             } else {
                 mc.classList.remove('active');
@@ -2192,7 +2238,7 @@
             bgmAudio.play().catch(()=>{});
             updateUI();
             // 确保准心状态正确
-            document.getElementById('crosshair').style.display = isMobileMode ? 'none' : 'block';
+            document.getElementById('crosshair').style.display = 'block';
             if (!isMobileMode) renderer.domElement.requestPointerLock();
         }
 
